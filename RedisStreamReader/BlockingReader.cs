@@ -46,21 +46,11 @@ public static class BlockingReader
                     foreach (RedisResult[] subresults in (RedisResult[])result)
                     {
                         var name = (RedisValue)subresults[0];
-                        foreach(RedisResult[] messages in (RedisResult[])subresults[1])
+                        foreach(RedisResult[] entryAsResult in (RedisResult[])subresults[1])
                         {
-                            var id = (RedisValue)messages[0];
-                            currentId = id;
-
-                            var nameValuePairs = (RedisResult[])messages[1];
-                            var pairs = new Pair[nameValuePairs.Length/2];
-
-                            for(var i = 0; i < nameValuePairs.Length; i+=2)
-                            {
-                                pairs[i / 2] = new Pair((RedisValue)nameValuePairs[i], (RedisValue)nameValuePairs[i + 1]);
-                            }
-
-                            var entry = new Entry(name, id, pairs);
+                            var entry = Entry.FromRedisResult(entryAsResult, name);
                             handler(entry);
+                            currentId = entry.Id;
                         }
                     }
                 }
@@ -78,6 +68,22 @@ public static class BlockingReader
     }
 }
 
-public record Entry(RedisValue StreamName, RedisValue Id, Pair[] Values);
+public record Entry(RedisValue StreamName, RedisValue Id, Pair[] Values)
+{
+    public static Entry FromRedisResult(RedisResult[] entryAsResult, string streamName)
+    {
+        var id = (RedisValue)entryAsResult[0];
+
+        var nameValuePairs = (RedisResult[])entryAsResult[1];
+        var pairs = new Pair[nameValuePairs.Length/2];
+
+        for(var i = 0; i < nameValuePairs.Length; i+=2)
+        {
+            pairs[i / 2] = new Pair((RedisValue)nameValuePairs[i], (RedisValue)nameValuePairs[i + 1]);
+        }
+
+        return new Entry(streamName, id, pairs);
+    }
+}
 
 public record Pair(RedisValue Name, RedisValue Value);
